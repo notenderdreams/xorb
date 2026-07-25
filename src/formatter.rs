@@ -50,7 +50,7 @@ pub fn format_markdown(scan_result: &ScanResult) -> String {
 pub fn format_xml(scan_result: &ScanResult) -> String {
     let mut output = String::new();
     output.push_str("<repository>\n");
-    
+
     output.push_str("  <structure>\n");
     let tree_str = scan_result.root_node.render_tree();
     for line in tree_str.lines() {
@@ -360,7 +360,7 @@ mod tests {
         }];
 
         let result = ScanResult { root_node, files };
-        
+
         let md = format_bundle(&result, OutputFormat::Markdown);
         assert!(md.contains("## Repository Structure"));
         assert!(md.contains("└── main.rs"));
@@ -385,6 +385,10 @@ mod tests {
         let rust_code = "fn calculate_total_price(item_count: usize, tax_rate: f64) -> f64 {\n    item_count as f64 * tax_rate\n}";
         let count = estimate_tokens(rust_code);
         // Expecting ~35-50 tokens for this function snippet with identifiers, types, operators, and spaces
-        assert!(count >= 30 && count <= 55, "Token count {} out of expected range", count);
+        assert!(
+            (30..=55).contains(&count),
+            "Token count {} out of expected range",
+            count
+        );
     }
 }

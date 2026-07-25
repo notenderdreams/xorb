@@ -15,22 +15,34 @@ By default, `xorb` respects `.gitignore` rules, automatically ignores binary fil
 
 ## Installation
 
-### Prerequisites
+### Linux & macOS (Bash / Zsh)
 
-Ensure you have Rust and `cargo` installed.
+Run this one-liner in your terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/notenderdreams/xorb/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+Run this command in PowerShell:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/notenderdreams/xorb/main/install.ps1 | iex
+```
 
 ### Direct Install via Git
 
 Install directly from a remote Git repository:
 
 ```bash
-cargo install --git https://github.com/your-username/xorb.git
+cargo install --git https://github.com/notenderdreams/xorb.git
 ```
 
 ### Build & Install Locally
 
 ```bash
-git clone https://github.com/your-username/xorb.git
+git clone https://github.com/notenderdreams/xorb.git
 cd xorb
 
 # Standard release build (optimized for speed & LTO enabled)
@@ -42,6 +54,12 @@ cargo build --profile release-small
 # Install locally to cargo path
 cargo install --path .
 ```
+
+## Release Pipeline
+
+`xorb` includes automated GitHub Actions workflows:
+- **CI (`ci.yml`)**: Compiles, tests, and lints across Linux, macOS, and Windows.
+- **Automated Releases (`release.yml`)**: Builds cross-platform binaries (`xorb-linux-x86_64.tar.gz`, `xorb-macos-aarch64.tar.gz`, `xorb-macos-x86_64.tar.gz`, `xorb-windows-x86_64.zip`) along with SHA256 checksums on tag push (e.g. `v0.1.0`).
 
 ## Usage
 

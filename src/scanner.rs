@@ -142,10 +142,10 @@ pub fn scan_directory(config: &Cli) -> Result<ScanResult> {
                 let _ = tx.send(ScannedItem::Dir(rel_path));
             } else if entry_path.is_file() {
                 // If diff filtering is active, skip files not present in diff set
-                if let Some(ref diff_files) = git_diff_set {
-                    if !diff_files.contains(&rel_path) {
-                        return WalkState::Continue;
-                    }
+                if let Some(ref diff_files) = git_diff_set
+                    && !diff_files.contains(&rel_path)
+                {
+                    return WalkState::Continue;
                 }
 
                 let (is_binary, content) = read_file_content(entry_path, max_bytes);
@@ -189,7 +189,10 @@ pub fn scan_directory(config: &Cli) -> Result<ScanResult> {
                 node,
                 scanned,
             } => {
-                let parent_rel = rel_path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
+                let parent_rel = rel_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new(""))
+                    .to_path_buf();
 
                 // Ensure parent dirs up to root exist in map
                 let mut current = parent_rel.as_path();
@@ -226,31 +229,34 @@ fn get_git_diff_files(root: &Path, git_ref: &str) -> Result<HashSet<PathBuf>> {
         cmd.arg(git_ref);
     }
 
-    if let Ok(output) = cmd.output() {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let trimmed = line.trim();
-                if !trimmed.is_empty() {
-                    set.insert(PathBuf::from(trimmed));
-                }
+    if let Ok(output) = cmd.output()
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                set.insert(PathBuf::from(trimmed));
             }
         }
     }
 
     // 2. Get untracked or staged working tree files
     let mut status_cmd = Command::new("git");
-    status_cmd.current_dir(root).arg("status").arg("--porcelain");
+    status_cmd
+        .current_dir(root)
+        .arg("status")
+        .arg("--porcelain");
 
-    if let Ok(output) = status_cmd.output() {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let trimmed = line.trim();
-                if trimmed.len() > 3 {
-                    let path_str = trimmed[3..].trim_matches('"');
-                    set.insert(PathBuf::from(path_str));
-                }
+    if let Ok(output) = status_cmd.output()
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let trimmed = line.trim();
+            if trimmed.len() > 3 {
+                let path_str = trimmed[3..].trim_matches('"');
+                set.insert(PathBuf::from(path_str));
             }
         }
     }
@@ -278,10 +284,7 @@ fn read_file_content(path: &Path, max_bytes: u64) -> (bool, Option<String>) {
     }
 }
 
-fn build_node_tree(
-    rel_path: &Path,
-    dir_entries: &mut HashMap<PathBuf, Vec<FileNode>>,
-) -> FileNode {
+fn build_node_tree(rel_path: &Path, dir_entries: &mut HashMap<PathBuf, Vec<FileNode>>) -> FileNode {
     let mut children = dir_entries.remove(rel_path).unwrap_or_default();
 
     let immediate_subdirs: Vec<PathBuf> = dir_entries

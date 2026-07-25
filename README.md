@@ -74,12 +74,24 @@ Options:
       --hidden                Include hidden files and directories (dotfiles)
       --no-ignore             Do not respect ignore files (.gitignore, etc.)
       --max-size-kb <BYTES>   Maximum file size in kilobytes to include [default: 1024]
+  -i, --include <GLOB>        Include only files matching pattern (e.g. -i "*.rs" -i "src/**")
+  -e, --exclude <GLOB>        Exclude files matching pattern (e.g. -e "tests/*")
   -q, --quiet                 Suppress diagnostic status messages
   -h, --help                  Print help
   -V, --version               Print version
 ```
 
 ### Examples
+
+**Filter only Rust source files:**
+```bash
+xorb -i "*.rs" -i "*.toml"
+```
+
+**Exclude test directories:**
+```bash
+xorb -e "tests/*" -e "benches/*"
+```
 
 **Output to stdout and pipe to a file:**
 ```bash

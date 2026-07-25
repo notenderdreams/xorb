@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
-use ignore::WalkBuilder;
+use ignore::overrides::OverrideBuilder;
+use ignore::{WalkBuilder, WalkState};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use crate::cli::Cli;
 use crate::tree::FileNode;
@@ -15,6 +17,15 @@ pub struct ScannedFile {
 pub struct ScanResult {
     pub root_node: FileNode,
     pub files: Vec<ScannedFile>,
+}
+
+enum ScannedItem {
+    Dir(PathBuf),
+    File {
+        rel_path: PathBuf,
+        node: FileNode,
+        scanned: ScannedFile,
+    },
 }
 
 pub fn scan_directory(config: &Cli) -> Result<ScanResult> {
@@ -54,55 +65,122 @@ pub fn scan_directory(config: &Cli) -> Result<ScanResult> {
         .hidden(!config.hidden)
         .standard_filters(!config.no_ignore);
 
+    // Configure include and exclude glob patterns
+    if config.include.is_some() || config.exclude.is_some() {
+        let mut ov_builder = OverrideBuilder::new(&canonical);
+
+        if let Some(includes) = &config.include {
+            for pat in includes {
+                let pattern_str = if pat.starts_with('/') || pat.starts_with('*') {
+                    pat.clone()
+                } else {
+                    format!("**/{}", pat)
+                };
+                let _ = ov_builder.add(&pattern_str);
+            }
+        }
+
+        if let Some(excludes) = &config.exclude {
+            for pat in excludes {
+                let pattern_str = if pat.starts_with('!') {
+                    pat.clone()
+                } else {
+                    format!("!{}", pat)
+                };
+                let _ = ov_builder.add(&pattern_str);
+            }
+        }
+
+        if let Ok(overrides) = ov_builder.build() {
+            walker.overrides(overrides);
+        }
+    }
+
     let max_bytes = config.max_size_kb * 1024;
+    let (tx, rx) = mpsc::channel();
+
+    let root = canonical.clone();
+    walker.build_parallel().run(|| {
+        let tx = tx.clone();
+        let root = root.clone();
+
+        Box::new(move |entry| {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => return WalkState::Continue,
+            };
+
+            let entry_path = entry.path();
+            if entry_path == root {
+                return WalkState::Continue;
+            }
+
+            let rel_path = match entry_path.strip_prefix(&root) {
+                Ok(rel) => rel.to_path_buf(),
+                Err(_) => return WalkState::Continue,
+            };
+
+            let file_name = match rel_path.file_name() {
+                Some(n) => n.to_string_lossy().to_string(),
+                None => return WalkState::Continue,
+            };
+
+            if entry_path.is_dir() {
+                let _ = tx.send(ScannedItem::Dir(rel_path));
+            } else if entry_path.is_file() {
+                let (is_binary, content) = read_file_content(entry_path, max_bytes);
+
+                let node = FileNode::File {
+                    name: file_name,
+                    rel_path: rel_path.clone(),
+                    is_binary,
+                };
+
+                let scanned = ScannedFile {
+                    rel_path: rel_path.clone(),
+                    content,
+                };
+
+                let _ = tx.send(ScannedItem::File {
+                    rel_path,
+                    node,
+                    scanned,
+                });
+            }
+
+            WalkState::Continue
+        })
+    });
+
+    drop(tx);
+
     let mut dir_entries: HashMap<PathBuf, Vec<FileNode>> = HashMap::new();
     let mut scanned_files = Vec::new();
 
     dir_entries.insert(PathBuf::new(), Vec::new());
 
-    for entry in walker.build() {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-
-        let entry_path = entry.path();
-        if entry_path == canonical {
-            continue;
-        }
-
-        let rel_path = match entry_path.strip_prefix(&canonical) {
-            Ok(rel) => rel.to_path_buf(),
-            Err(_) => continue,
-        };
-
-        let file_name = match rel_path.file_name() {
-            Some(n) => n.to_string_lossy().to_string(),
-            None => continue,
-        };
-
-        let parent_rel = rel_path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
-
-        if entry_path.is_dir() {
-            dir_entries.entry(rel_path.clone()).or_default();
-        } else if entry_path.is_file() {
-            let (is_binary, content) = read_file_content(entry_path, max_bytes);
-
-            let file_node = FileNode::File {
-                name: file_name,
-                rel_path: rel_path.clone(),
-                is_binary,
-            };
-
-            // Ensure parent dirs up to root exist in map
-            let mut current = parent_rel.as_path();
-            while !current.as_os_str().is_empty() {
-                dir_entries.entry(current.to_path_buf()).or_default();
-                current = current.parent().unwrap_or_else(|| Path::new(""));
+    for item in rx {
+        match item {
+            ScannedItem::Dir(rel_path) => {
+                dir_entries.entry(rel_path).or_default();
             }
+            ScannedItem::File {
+                rel_path,
+                node,
+                scanned,
+            } => {
+                let parent_rel = rel_path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
 
-            dir_entries.entry(parent_rel).or_default().push(file_node);
-            scanned_files.push(ScannedFile { rel_path, content });
+                // Ensure parent dirs up to root exist in map
+                let mut current = parent_rel.as_path();
+                while !current.as_os_str().is_empty() {
+                    dir_entries.entry(current.to_path_buf()).or_default();
+                    current = current.parent().unwrap_or_else(|| Path::new(""));
+                }
+
+                dir_entries.entry(parent_rel).or_default().push(node);
+                scanned_files.push(scanned);
+            }
         }
     }
 
@@ -124,7 +202,7 @@ fn read_file_content(path: &Path, max_bytes: u64) -> (bool, Option<String>) {
 
     match fs::read(path) {
         Ok(bytes) => {
-            if bytes.contains(&0) {
+            if memchr::memchr(0, &bytes).is_some() {
                 (true, None)
             } else {
                 match String::from_utf8(bytes) {

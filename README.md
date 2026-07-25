@@ -76,6 +76,7 @@ Options:
       --max-size-kb <BYTES>   Maximum file size in kilobytes to include [default: 1024]
   -i, --include <GLOB>        Include only files matching pattern (e.g. -i "*.rs" -i "src/**")
   -e, --exclude <GLOB>        Exclude files matching pattern (e.g. -e "tests/*")
+  -d, --max-depth <DEPTH>     Maximum directory recursion depth
   -q, --quiet                 Suppress diagnostic status messages
   -h, --help                  Print help
   -V, --version               Print version
@@ -91,6 +92,11 @@ xorb -i "*.rs" -i "*.toml"
 **Exclude test directories:**
 ```bash
 xorb -e "tests/*" -e "benches/*"
+```
+
+**Limit directory depth:**
+```bash
+xorb -d 2
 ```
 
 **Output to stdout and pipe to a file:**

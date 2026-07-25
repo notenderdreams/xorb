@@ -45,6 +45,10 @@ pub struct Cli {
     #[arg(short = 'e', long = "exclude", value_name = "GLOB")]
     pub exclude: Option<Vec<String>>,
 
+    /// Maximum directory recursion depth
+    #[arg(short = 'd', long = "max-depth", value_name = "DEPTH")]
+    pub max_depth: Option<usize>,
+
     /// Suppress diagnostic status messages
     #[arg(short, long)]
     pub quiet: bool,

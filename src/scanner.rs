@@ -65,6 +65,10 @@ pub fn scan_directory(config: &Cli) -> Result<ScanResult> {
         .hidden(!config.hidden)
         .standard_filters(!config.no_ignore);
 
+    if let Some(depth) = config.max_depth {
+        walker.max_depth(Some(depth));
+    }
+
     // Configure include and exclude glob patterns
     if config.include.is_some() || config.exclude.is_some() {
         let mut ov_builder = OverrideBuilder::new(&canonical);

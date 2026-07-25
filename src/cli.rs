@@ -49,6 +49,10 @@ pub struct Cli {
     #[arg(short = 'd', long = "max-depth", value_name = "DEPTH")]
     pub max_depth: Option<usize>,
 
+    /// Filter to only files changed according to git diff (optionally supply a ref, e.g. --diff main)
+    #[arg(long = "diff", value_name = "REF", num_args = 0..=1, default_missing_value = "HEAD")]
+    pub diff: Option<String>,
+
     /// Suppress diagnostic status messages
     #[arg(short, long)]
     pub quiet: bool,

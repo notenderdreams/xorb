@@ -77,6 +77,7 @@ Options:
   -i, --include <GLOB>        Include only files matching pattern (e.g. -i "*.rs" -i "src/**")
   -e, --exclude <GLOB>        Exclude files matching pattern (e.g. -e "tests/*")
   -d, --max-depth <DEPTH>     Maximum directory recursion depth
+      --diff [REF]            Filter to files changed in git diff (e.g. --diff main or --diff HEAD~1)
   -q, --quiet                 Suppress diagnostic status messages
   -h, --help                  Print help
   -V, --version               Print version
@@ -97,6 +98,12 @@ xorb -e "tests/*" -e "benches/*"
 **Limit directory depth:**
 ```bash
 xorb -d 2
+```
+
+**Bundle only files modified in Git (Git Diff mode):**
+```bash
+xorb --diff
+xorb --diff main
 ```
 
 **Output to stdout and pipe to a file:**

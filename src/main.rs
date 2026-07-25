@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     }
 
     let scan_result = scan_directory(&cli)?;
-    let bundle = format_bundle(&scan_result);
+    let bundle = format_bundle(&scan_result, cli.format);
     let token_estimate = estimate_tokens(&bundle);
 
     let mut copied_to_clipboard = false;

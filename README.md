@@ -68,14 +68,15 @@ Arguments:
   [PATH]  Target directory or file path to scan [default: .]
 
 Options:
+  -f, --format <FORMAT>       Output format [default: markdown] [possible values: markdown, xml, json]
   -o, --output <OUTPUT>       Write output to a specific file
   -s, --stdout                Print output to stdout
   -n, --no-clipboard          Skip copying output to system clipboard
       --hidden                Include hidden files and directories (dotfiles)
       --no-ignore             Do not respect ignore files (.gitignore, etc.)
       --max-size-kb <BYTES>   Maximum file size in kilobytes to include [default: 1024]
-  -i, --include <GLOB>        Include only files matching pattern (e.g. -i "*.rs" -i "src/**")
-  -e, --exclude <GLOB>        Exclude files matching pattern (e.g. -e "tests/*")
+  -i, --include <GLOB>...     Include only files matching pattern (e.g. -i "*.rs" or -i src/*.rs)
+  -e, --exclude <GLOB>...     Exclude files matching pattern (e.g. -e "tests/*")
   -d, --max-depth <DEPTH>     Maximum directory recursion depth
       --diff [REF]            Filter to files changed in git diff (e.g. --diff main or --diff HEAD~1)
   -q, --quiet                 Suppress diagnostic status messages
@@ -84,6 +85,16 @@ Options:
 ```
 
 ### Examples
+
+**Output in XML format (ideal for Claude / Anthropic models):**
+```bash
+xorb -f xml
+```
+
+**Output in JSON format:**
+```bash
+xorb -f json
+```
 
 **Filter only Rust source files:**
 ```bash

@@ -1,17 +1,29 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum OutputFormat {
+    #[default]
+    Markdown,
+    Xml,
+    Json,
+}
 
 #[derive(Parser, Debug)]
 #[command(
     name = "xorb",
     author,
     version,
-    about = "Bundle directory structure and file contents into LLM-friendly Markdown"
+    about = "Bundle directory structure and file contents into LLM-friendly formats"
 )]
 pub struct Cli {
     /// Target directory or file path to scan
     #[arg(default_value = ".")]
     pub path: PathBuf,
+
+    /// Output format (markdown, xml, json)
+    #[arg(short = 'f', long = "format", value_enum, default_value_t = OutputFormat::Markdown)]
+    pub format: OutputFormat,
 
     /// Write output to a specific file
     #[arg(short, long)]

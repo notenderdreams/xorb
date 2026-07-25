@@ -1,7 +1,16 @@
+use crate::cli::OutputFormat;
 use crate::scanner::ScanResult;
 use std::path::Path;
 
-pub fn format_bundle(scan_result: &ScanResult) -> String {
+pub fn format_bundle(scan_result: &ScanResult, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Markdown => format_markdown(scan_result),
+        OutputFormat::Xml => format_xml(scan_result),
+        OutputFormat::Json => format_json(scan_result),
+    }
+}
+
+pub fn format_markdown(scan_result: &ScanResult) -> String {
     let mut output = String::new();
 
     // Repository Structure section
@@ -36,6 +45,112 @@ pub fn format_bundle(scan_result: &ScanResult) -> String {
     }
 
     output
+}
+
+pub fn format_xml(scan_result: &ScanResult) -> String {
+    let mut output = String::new();
+    output.push_str("<repository>\n");
+    
+    output.push_str("  <structure>\n");
+    let tree_str = scan_result.root_node.render_tree();
+    for line in tree_str.lines() {
+        output.push_str("    ");
+        output.push_str(&xml_escape(line));
+        output.push('\n');
+    }
+    output.push_str("  </structure>\n");
+
+    output.push_str("  <files>\n");
+    for scanned in &scan_result.files {
+        let path_str = scanned.rel_path.to_string_lossy();
+        let lang = detect_language(&scanned.rel_path);
+
+        output.push_str(&format!(
+            "    <file path=\"{}\" language=\"{}\">\n",
+            xml_escape(&path_str),
+            lang
+        ));
+
+        match &scanned.content {
+            Some(text) => {
+                output.push_str("      <![CDATA[");
+                output.push_str(text);
+                output.push_str("]]>\n");
+            }
+            None => {
+                output.push_str("      <skipped binary=\"true\" />\n");
+            }
+        }
+
+        output.push_str("    </file>\n");
+    }
+
+    output.push_str("  </files>\n");
+    output.push_str("</repository>\n");
+
+    output
+}
+
+pub fn format_json(scan_result: &ScanResult) -> String {
+    let tree_str = scan_result.root_node.render_tree();
+
+    let files_json: Vec<String> = scan_result
+        .files
+        .iter()
+        .map(|scanned| {
+            let path_str = scanned.rel_path.to_string_lossy();
+            let lang = detect_language(&scanned.rel_path);
+            let (skipped, content_str) = match &scanned.content {
+                Some(text) => (false, json_escape(text)),
+                None => (true, "null".to_string()),
+            };
+
+            format!(
+                "    {{\n      \"path\": \"{}\",\n      \"language\": \"{}\",\n      \"skipped\": {},\n      \"content\": {}\n    }}",
+                json_escape(&path_str).trim_matches('"'),
+                lang,
+                skipped,
+                content_str
+            )
+        })
+        .collect();
+
+    format!(
+        "{{\n  \"structure\": {},\n  \"files\": [\n{}\n  ]\n}}\n",
+        json_escape(&tree_str),
+        files_json.join(",\n")
+    )
+}
+
+fn xml_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn json_escape(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len() + 16);
+    escaped.push('"');
+    for c in input.chars() {
+        match c {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            '\x08' => escaped.push_str("\\b"),
+            '\x0c' => escaped.push_str("\\f"),
+            c if c.is_control() => {
+                escaped.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => escaped.push(c),
+        }
+    }
+    escaped.push('"');
+    escaped
 }
 
 pub fn detect_language(path: &Path) -> &'static str {
@@ -245,12 +360,22 @@ mod tests {
         }];
 
         let result = ScanResult { root_node, files };
-        let formatted = format_bundle(&result);
+        
+        let md = format_bundle(&result, OutputFormat::Markdown);
+        assert!(md.contains("## Repository Structure"));
+        assert!(md.contains("└── main.rs"));
+        assert!(md.contains("## Files"));
+        assert!(md.contains("# File: main.rs\n```rust\nfn main() {}\n```"));
 
-        assert!(formatted.contains("## Repository Structure"));
-        assert!(formatted.contains("└── main.rs"));
-        assert!(formatted.contains("## Files"));
-        assert!(formatted.contains("# File: main.rs\n```rust\nfn main() {}\n```"));
+        let xml = format_bundle(&result, OutputFormat::Xml);
+        assert!(xml.contains("<repository>"));
+        assert!(xml.contains("<file path=\"main.rs\" language=\"rust\">"));
+        assert!(xml.contains("<![CDATA[fn main() {}]]>"));
+
+        let json = format_bundle(&result, OutputFormat::Json);
+        assert!(json.contains("\"path\": \"main.rs\""));
+        assert!(json.contains("\"language\": \"rust\""));
+        assert!(json.contains("\"content\": \"fn main() {}\""));
     }
 
     #[test]

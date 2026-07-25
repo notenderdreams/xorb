@@ -37,12 +37,12 @@ pub struct Cli {
     #[arg(long, default_value_t = 1024)]
     pub max_size_kb: u64,
 
-    /// Include only files matching these glob patterns (e.g. -i "*.rs" -i "src/**")
-    #[arg(short = 'i', long = "include", value_name = "GLOB")]
+    /// Include only files matching these glob patterns (e.g. -i "*.rs" -i "src/**" or -i src/*.rs)
+    #[arg(short = 'i', long = "include", value_name = "GLOB", num_args = 1..)]
     pub include: Option<Vec<String>>,
 
     /// Exclude files matching these glob patterns (e.g. -e "tests/*" -e "*.tmp")
-    #[arg(short = 'e', long = "exclude", value_name = "GLOB")]
+    #[arg(short = 'e', long = "exclude", value_name = "GLOB", num_args = 1..)]
     pub exclude: Option<Vec<String>>,
 
     /// Maximum directory recursion depth

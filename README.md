@@ -32,6 +32,14 @@ cargo install --git https://github.com/your-username/xorb.git
 ```bash
 git clone https://github.com/your-username/xorb.git
 cd xorb
+
+# Standard release build (optimized for speed & LTO enabled)
+cargo build --release
+
+# Size-optimized release build
+cargo build --profile release-small
+
+# Install locally to cargo path
 cargo install --path .
 ```
 

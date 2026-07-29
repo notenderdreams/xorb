@@ -52,9 +52,16 @@ fn main() -> Result<()> {
     }
 
     if !cli.quiet {
+        let total_lines: usize = scan_result
+            .files
+            .iter()
+            .map(|f| f.content.as_ref().map(|c| c.lines().count()).unwrap_or(0))
+            .sum();
+
         eprintln!(
-            "Scanned {} file(s) | Estimated tokens: {}",
+            "Scanned {} file(s) | Total lines: {} | Estimated tokens: {}",
             scan_result.files.len(),
+            total_lines,
             token_estimate
         );
     }
